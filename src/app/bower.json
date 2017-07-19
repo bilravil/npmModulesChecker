@@ -1,0 +1,14 @@
+{
+  "name": "test.task",
+  "homepage": "https://github.com/bilravil/test.task",
+  "authors": [
+    "Ravil Bilalov <bilravil@ya.ru>"
+  ],
+  "description": "",
+  "main": "",
+  "license": "MIT",
+  "dependencies": {
+    "bootstrap": "^3.3.7",
+    "angular-smart-table": "^2.1.8"
+  }
+}

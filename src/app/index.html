@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>test</title>
+
+    <link href="./bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+    <script src="./bower_components/angular-smart-table/dist/smart-table.min.js"></script>
+    <script>
+        var app = angular.module('App', ['smart-table']);
+        app.controller('IndexCtrl', function($scope, $http, $timeout, $element, $rootScope) {
+            $scope.items = {};
+            $scope.active = false;
+            $scope.Find = function() {
+
+                $http.get('/Get?url=' + $scope.url).
+                then(function(result) {
+                        $scope.items = result.data;
+                        $scope.active = true;
+                    },
+                    function(err) {
+                        $scope.url = err.data;
+                        $scope.items = {};
+                    });
+            }
+        })
+    </script>
+</head>
+
+<body ng-app="App" ng-controller="IndexCtrl">
+    <div class="container">
+        <div class="form-inline" style="margin-top:25px">
+            <input type="text" ng-model="url" class="form-control" style="width:60%" required>
+            <button type="button" class="btn btn-primary" ng-click="Find()">Find repo</button>
+        </div>
+        <table st-table="items" class="table table-striped" ng-if="active==true" style="margin-top:15px">
+            <thead>
+                <tr>
+                    <th>dependency</th>
+                    <th>required</th>
+                    <th>latest</th>
+                    <th>status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="item in items">
+                    <td>{{item.name}}</td>
+                    <td>{{item.version}}</td>
+                    <td>{{item.lastV}}</td>
+                    <td>
+                        <span class="label label-success" ng-if="item.diff == null">uptodate</span>
+                        <span class="label label-warning" ng-if="item.diff == 'patch'">uptodate</span>
+                        <span class="label label-danger" ng-if="item.diff == 'major'">outofdate</span>
+                        <span class="label label-danger" ng-if="item.diff == 'premajor'">outofdate</span>
+                        <span class="label label-primary" ng-if="item.diff == 'minor'">{{item.diff}}</span>
+                        <span class="label label-primary" ng-if="item.diff == 'prerelease'">{{item.diff}}</span>
+                        <span class="label label-primary" ng-if="item.diff == 'preminor'">{{item.diff}}</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+        <script src="./bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+</body>
+
+</html>
