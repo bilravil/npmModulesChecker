@@ -1,57 +1,112 @@
-const express = require('express');
-const url = require('url');
-const bodyParser = require('body-parser');
-const jsonParser = bodyParser.json();
-const app = express();
-const http = require('http').Server(app);
-const fs = require('fs');
+const request = require('request');
+const cheerio = require('cheerio');
+const semver = require('semver');
+const getPackage = require('get-repo-package-json');
 
-const port = 8088;
+function getRepoVersion(pkgName) {
+    return new Promise((resolve, reject) => {
+        request.get('https://www.npmjs.com/package/' + pkgName, function(err, remoteResponse, remoteBody) {
+            if (err) {
+                reject(err);
+            }
+            let $ = cheerio.load(remoteBody);
+            let curVersion = $('.box li strong').eq(0).text();
 
-const func = require('./index.js');
-
-function Run(callback) {
-    app.all('*', function(req, res, next) {
-        res.header("Access-Control-Allow-Origin", "*");
-        res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-type,Accept,X-Access-Token,X-Key');
-        if (req.method == 'OPTIONS') {
-            res.status(200).end();
-        } else {
-            +
-            next();
-        }
-    });
-
-    app.get('/Get', jsonParser, function(req, res) {
-        if (!req.body) return res.send({ success: false, message: "Invalid arguments" });
-        let pth = req.query.url;
-        // if (pth.indexOf('https://github.com/') === 0) {
-        //     pth = pth.split('https://github.com/')[1].replace(new RegExp('tree\/', 'g'), '').replace(new RegExp('blob\/', 'g'), '');
-        //     pth = 'https://raw.githubusercontent.com/' + pth;
-        //     //if (pth.indexOf('master') === -1) pth = pth + '/master';
-        //     if (pth.indexOf('package.json') === -1) pth = pth + '/package.json';
-        // }
-        console.log(pth);
-
-        func.getPackageJSON(pth).then(
-            result => {
-                res.status(200);
-                res.send(result);
-            },
-            error => {
-                res.status(400);
-                res.send(error);
-            })
-
-
-    });
-
-    app.use(express.static(__dirname + '/app'));
-
-    http.listen(port, function() {
-        callback(`Server started on port ${port}`);
+            resolve(curVersion);
+        });
     });
 }
 
-Run(function(msg) { console.log(msg); });
+function getPackageJSON(path) {
+    console.log(111);
+    return new Promise((resolve, reject) => {
+        getPackage(path, function(err, pkg) {
+            if (err) console.log(err);
+            //console.log(pkg);
+
+            let arr = [];
+            let size = Object.keys(pkg.dependencies).length;
+            let counter = 0;
+            Object.keys(pkg.dependencies).forEach(function(name, index) {
+                let version = pkg.dependencies[name];
+
+                arr.push({ name, version });
+                if (index === size - 1) {
+                    arr.map((i) => {
+                        getRepoVersion(i.name).then(lastV => {
+                            counter++;
+                            let required = i.version;
+                            if (required.indexOf('^') === 0) required = required.replace('^', '');
+                            if (required.indexOf('~') === 0) required = required.replace('~', '');
+                            i.diff = semver.diff(required, lastV);
+                            i.lastV = lastV;
+                            if (counter === arr.length) resolve(arr);
+                        })
+                    })
+                }
+            });
+
+            if (err) {
+                console.log(err);
+                return;
+            }
+
+        });
+    })
+}
+
+function getAll(path) {
+    return new Promise((resolve, reject) => {
+        getPackageJSON(path).then(list => {
+            let arr = list.map(i => { return i.name });
+            Promise.all(arr.map(getRepoVersion))
+                .then(results => {
+                    console.log(results);
+                    resolve(results);
+                });
+        })
+    });
+
+}
+
+// function getPackageJSON(path) {
+//     getPackage(path, function(err, pkg) {
+//         if (err) throw err
+//         console.log(pkg.dependencies);
+
+//     })
+//     return new Promise((resolve, reject) => {
+//         request.get(path, function(err, remoteResponse, remoteBody) {
+//             if (remoteResponse.statusCode !== 200) return reject('error request.bad url!');
+//             let tmp = JSON.parse(remoteBody);
+//             let arr = [];
+//             let size = Object.keys(tmp.dependencies).length;
+//             let counter = 0;
+//             Object.keys(tmp.dependencies).forEach(function(name, index) {
+//                 let version = tmp.dependencies[name];
+
+//                 arr.push({ name, version });
+//                 if (index === size - 1) {
+//                     arr.map((i) => {
+//                         getRepoVersion(i.name).then(lastV => {
+//                             counter++;
+//                             let required = i.version;
+//                             if (required.indexOf('^') === 0) required = required.replace('^', '');
+//                             if (required.indexOf('~') === 0) required = required.replace('~', '');
+//                             i.diff = semver.diff(required, lastV);
+//                             i.lastV = lastV;
+//                             if (counter === arr.length) resolve(arr);
+//                         })
+//                     })
+//                 }
+//             });
+
+//             if (err) {
+//                 console.log(err);
+//                 return;
+//             }
+//         });
+//     });
+// }
+
+module.exports.getPackageJSON = getPackageJSON;
